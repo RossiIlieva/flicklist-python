@@ -84,7 +84,13 @@ class Index(webapp2.RequestHandler):
 
         # if we have an error, make a <p> to display it
         error = self.request.get("error")
-        error_element = "<p class='error'>" + error + "</p>" if error else ""
+        if error:
+            error_element = (
+                '<p class="error">' +
+                cgi.escape(error, quote=True) +
+                '</p>')
+        else:
+            error_element = ''
 
         # combine all the pieces to build the content of our response
         main_content = edit_header + add_form + crossoff_form + error_element
@@ -134,10 +140,9 @@ class CrossOffMovie(webapp2.RequestHandler):
 
             # make a helpful error message
             error = "'{0}' is not in your Watchlist, so you can't cross it off!".format(crossed_off_movie)
-            error_escaped = cgi.escape(error, quote=True)
 
             # redirect to homepage, and include error as a query parameter in the URL
-            self.redirect("/?error=" + error_escaped)
+            self.redirect("/?error=" + error)
 
         # if we didn't redirect by now, then all is well
         crossed_off_movie_element = "<strike>" + crossed_off_movie + "</strike>"
