@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>{{ movie.title }}</h2>
+
+<ul>
+  <li>created: {{movie.created }}</li>
+  <li>watched: {{ movie.watched }}</li>
+  <li>rating: {{ movie.rating }}</li>
+</ul>
+
+{% endblock content %}

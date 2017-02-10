@@ -2,6 +2,19 @@ import webapp2
 import cgi
 import jinja2
 import os
+from google.appengine.ext import db
+
+
+class Movie(db.Model):
+    title = db.StringProperty(required=True)
+    created = db.DateTimeProperty(auto_now_add=True)
+    watched = db.BooleanProperty(required=True, default=False)
+    rating = db.StringProperty()
+
+# movie = Movie(title='Kung Fu Panda')
+# movie.created set for us
+# movie.watched -> False
+# movie.rating -> None
 
 # set up jinja
 template_dir = os.path.join(os.path.dirname(__file__), "templates")
@@ -20,13 +33,14 @@ def getUnwatchedMovies():
     """ Returns the list of movies the user wants to watch (but hasnt yet) """
 
     # for now, we are just pretending
-    return [ "Star Wars", "Minions", "Freaky Friday", "My Favorite Martian" ]
+    movies = db.GqlQuery('SELECT * FROM Movie WHERE watched = False')
+    return movies
 
 
 def getWatchedMovies():
     """ Returns the list of movies the user has already watched """
 
-    return [ "The Matrix", "The Big Green", "Ping Ping Playa" ]
+    return []
 
 
 class Handler(webapp2.RequestHandler):
@@ -70,12 +84,12 @@ class AddMovie(Handler):
             error = "Trust me, you don't want to add '{0}' to your Watchlist.".format(new_movie)
             self.redirect("/?error=" + error)
 
-        # 'escape' the user's input so that if they typed HTML, it doesn't mess up our site
-        new_movie_escaped = cgi.escape(new_movie, quote=True)
+        movie = Movie(title=new_movie)
+        movie.put()
 
         # render the confirmation message
         t = jinja_env.get_template("add-confirmation.html")
-        content = t.render(movie = new_movie_escaped)
+        content = t.render(movie=movie)
         self.response.write(content)
 
 
@@ -98,14 +112,16 @@ class WatchedMovie(Handler):
             self.renderError(400)
             return
 
-        # if user tried to cross off a movie that is not in their list, reject
-        if not (watched_movie in getUnwatchedMovies()):
-            self.renderError(400)
-            return
+        movie = Movie.get_by_id(int(watched_movie))
+        if not movie:
+            self.renderError(404)
+        movie.watched = True
+        movie.put()
+
 
         # render confirmation page
         t = jinja_env.get_template("watched-it-confirmation.html")
-        content = t.render(movie = watched_movie)
+        content = t.render(movie=movie)
         self.response.write(content)
 
 
@@ -119,6 +135,7 @@ class MovieRatings(Handler):
     def post(self):
         movie = self.request.get("movie")
         rating = self.request.get("rating")
+
         if movie and rating:
             t = jinja_env.get_template("rating-confirmation.html")
             content = t.render(movie = movie, rating = rating)
@@ -126,10 +143,21 @@ class MovieRatings(Handler):
         else:
             self.renderError(400)
 
+class MovieDetail(Handler):
+    def get(self, movie_id):
+        movie = Movie.get_by_id(int(movie_id))
+        if not movie:
+            self.renderError(404)
+
+        t = jinja_env.get_template('movie_detail.html')
+        content = t.render(movie=movie)
+
+        self.response.write(content)
 
 app = webapp2.WSGIApplication([
     ('/', Index),
     ('/add', AddMovie),
     ('/watched-it', WatchedMovie),
-    ('/ratings', MovieRatings)
+    ('/ratings', MovieRatings),
+    webapp2.Route('/movies/<movie_id:\d+>', MovieDetail),
 ], debug=True)

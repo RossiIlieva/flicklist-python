@@ -12,7 +12,9 @@
                 My Rating:
                 <select name="rating">
                 {% for rating in ["How was it?", "*", "**", "***", "****", "*****"] %}
-                    <option>{{ rating }}</option>
+                    <option
+                      {% if rating == movie.rating %}selected {% endif %}
+                    >{{ rating }}</option>
                 {% endfor %}
                 </select>
             </label>
