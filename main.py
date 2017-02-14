@@ -2,6 +2,7 @@ import webapp2
 import cgi
 import jinja2
 import os
+import hashutils
 from google.appengine.ext import db
 
 # set up jinja
@@ -16,12 +17,29 @@ terrible_movies = [
     "Nine Lives"
 ]
 
+class User(db.Model):
+    username = db.StringProperty(required=True)
+    pw_hash = db.StringProperty(required=True)
+
+def get_user_by_name(name):
+    users = db.GqlQuery('SELECT * FROM User WHERE username = %s', name)
+    if users:
+        return users.get()
+    return None
 
 class Movie(db.Model):
     title = db.StringProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
     watched = db.BooleanProperty(required = True, default = False)
     rating = db.StringProperty()
+# end of Movie
+
+allowed_routes = (
+    '/login',
+    '/register',
+    '/logout',
+)
+
 
 class Handler(webapp2.RequestHandler):
     """ A base RequestHandler class for our app.
@@ -34,6 +52,68 @@ class Handler(webapp2.RequestHandler):
         self.error(error_code)
         self.response.write("Oops! Something went wrong.")
 
+    def login_user(self, user):
+        user_id = user.key().id()
+        self.set_secure_cookie('user_id', str(user_id))
+
+    def log_out_user(self):
+        self.set_secure_cookie('user_id', '')
+
+    def set_secure_cookie(self, name, value):
+        cookie_val = hashutils.make_secure_val(value)
+        self.response.headers.add_header(
+            'Set-Cookie',
+            # user_id=ahamilton|56yge34..; Path=/
+            '{name}={val}; Path=/'.format(
+                name=name,
+                val=cookie_val))
+
+    def read_secure_cookie(self, name):
+        cookie_val = self.request.cookies.get(name)
+        if cookie_val:
+            return hashutils.check_secure_val(cookie_val)
+        return None
+
+    def initialize(self, *a, **kw):
+        # check if user is logged in.
+        # if not, redirect to /login
+        webapp2.RequestHandler.initialize(self, *a, **kw)
+        uid = self.read_secure_cookie('user_id')
+        self.user = uid and User.get_by_id(int(uid))
+        # if uid:
+        #     self.user = User.get_by_id(int(uid))
+        # else:
+        #     self.user = uid
+        # uid = None -> self.user = None
+        # uid = '48' -> self.user = <User id: 48>
+
+        if not self.user and self.request.path not in allowed_routes:
+            self.redirect('/login')
+            return
+
+class LoginHandler(Handler):
+    def render_login_form(self, error=''):
+        t = jinja_env.get_template('login.html')
+        content = t.render(error=error)
+        self.response.write(content)
+
+    def get(self):
+        self.render_login_form()
+
+    def post(self):
+        submitted_username = self.request.get('username')
+        submitted_password = self.request.get('password')
+
+        user = get_user_by_name(submitted_username)
+        if not user:
+            self.render_login_form(
+                error='Invalid User')
+        elif not hashutils.valid_pw(submitted_password, user.pw_hash):
+            self.render_login_form(
+                error='Invalid Password')
+        else:
+            self.login_user(user)
+            self.redirect('/')
 
 class Index(Handler):
     """ Handles requests coming in to '/' (the root of our site)
