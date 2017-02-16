@@ -22,7 +22,7 @@ class User(db.Model):
     pw_hash = db.StringProperty(required=True)
 
 def get_user_by_name(name):
-    users = db.GqlQuery('SELECT * FROM User WHERE username = %s', name)
+    users = db.GqlQuery('SELECT * FROM User WHERE username = :1', name)
     if users:
         return users.get()
     return None
@@ -209,7 +209,7 @@ class MovieRatings(Handler):
 
             # render confirmation
             t = jinja_env.get_template("rating-confirmation.html")
-            content = t.render(movie = movie)
+            content = t.render(movie=movie)
             self.response.write(content)
         else:
             self.renderError(400)
@@ -219,5 +219,6 @@ app = webapp2.WSGIApplication([
     ('/', Index),
     ('/add', AddMovie),
     ('/watched-it', WatchedMovie),
-    ('/ratings', MovieRatings)
+    ('/ratings', MovieRatings),
+    ('/login', LoginHandler),
 ], debug=True)

@@ -8,18 +8,30 @@
 #
 #####################################################
 
-import passlib, hmac
+import hmac
+import hashlib
+import random
+import string
 
-from passlib.hash import pbkdf2_sha256
+
+def make_salt():
+    return ''.join(random.choice(string.letters) for x in xrange(5))
+
+
 def valid_pw(pw, h):
     """
     pw: came in from the user, just now
     h: came from the db, by looking up that username
     """
-    return pbkdf2_sha256.verify(pw, h)
+    salt = h.split(',')[-1]
+    return make_pw_hash(pw, salt) == h
 
-def make_pw_hash(pw):
-    return pbkdf2_sha256.hash(pw)
+
+def make_pw_hash(pw, salt=None):
+    if salt is None:
+        salt = make_salt()
+    h = hashlib.pbkdf2_hmac('sha256', pw, salt, iterations=100000)
+    return h + ',' + salt
 
 # --- that's it for passwords
 # the rest is for usernames
