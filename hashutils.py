@@ -17,22 +17,16 @@ import string
 def make_salt():
     return ''.join(random.choice(string.letters) for x in xrange(5))
 
-
-def valid_pw(pw, h):
-    """
-    pw: came in from the user, just now
-    h: came from the db, by looking up that username
-    """
-    salt = h.split(',')[-1]
-    return make_pw_hash(pw, salt) == h
-
-
-def make_pw_hash(pw, salt=None):
-    if salt is None:
+def make_pw_hash(name, pw, salt = None):
+    if not salt:
         salt = make_salt()
-    h = hashlib.pbkdf2_hmac('sha256', pw, salt, iterations=100000)
-    return h + ',' + salt
 
+    h = hashlib.sha256(name + pw + salt).hexdigest()
+    return '%s,%s' % (h, salt)
+
+def valid_pw(name, pw, h):
+    salt = h.split(',')[1]
+    return h == make_pw_hash(name, pw, salt)
 # --- that's it for passwords
 # the rest is for usernames
 

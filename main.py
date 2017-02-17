@@ -22,7 +22,9 @@ class User(db.Model):
     pw_hash = db.StringProperty(required=True)
 
 def get_user_by_name(name):
-    users = db.GqlQuery('SELECT * FROM User WHERE username = :1', name)
+    # DANGER, what if name = "'; DELETE FROM User; --"
+    users = db.GqlQuery(
+        "SELECT * FROM User WHERE username = :1", name)
     if users:
         return users.get()
     return None
@@ -108,12 +110,55 @@ class LoginHandler(Handler):
         if not user:
             self.render_login_form(
                 error='Invalid User')
-        elif not hashutils.valid_pw(submitted_password, user.pw_hash):
+        elif not hashutils.valid_pw(submitted_username, submitted_password, user.pw_hash):
             self.render_login_form(
                 error='Invalid Password')
         else:
             self.login_user(user)
             self.redirect('/')
+
+class RegisterHandler(Handler):
+    def show_sign_up_form(self, errors=None, username=''):
+        t = jinja_env.get_template('register.html')
+        content = t.render(errors=errors, username=username)
+        self.response.write(content)
+
+    def get(self):
+        self.show_sign_up_form()
+
+    def post(self):
+        submitted_username = self.request.get('username')
+        submitted_password = self.request.get('password')
+        submitted_verify = self.request.get('verify')
+
+        errors = {}
+
+        # Check that username is valid (alphabetic, 3-20 chars)
+        if not submitted_username.isalpha() or not (3 <= len(submitted_username) <= 20):
+            errors['username_error'] = 'Invalid Username'
+        # check that password and verify match
+        if submitted_password != submitted_verify:
+            errors['verify_error'] = 'Passwords do not match!'
+        if len(submitted_password) < 5:
+            errors['password_error'] = 'Password too short (must be at least 5 chars)'
+        # check if the username is already in use
+        user = get_user_by_name(submitted_username)
+        if user is not None:
+            errors['username_error'] = 'There is already a user with that name!'
+
+        if errors: # if the dict errors is non-empty
+            self.show_sign_up_form(errors=errors, username=submitted_username)
+        else:
+            # make a new user, put them in the db
+            new_user = User(
+                username=submitted_username,
+                pw_hash=hashutils.make_pw_hash(submitted_username, submitted_password),
+            )
+            new_user.put()
+            self.login_user(new_user)
+            # log in the new user
+            self.redirect('/')
+
 
 class Index(Handler):
     """ Handles requests coming in to '/' (the root of our site)
@@ -221,4 +266,5 @@ app = webapp2.WSGIApplication([
     ('/watched-it', WatchedMovie),
     ('/ratings', MovieRatings),
     ('/login', LoginHandler),
+    ('/register', RegisterHandler),
 ], debug=True)
