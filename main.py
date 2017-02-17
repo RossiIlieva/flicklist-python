@@ -180,6 +180,27 @@ class Index(Handler):
                         error = self.request.get("error"))
         self.response.write(content)
 
+class RecentlyWatched(Handler):
+    def get(self):
+        recently_watched_movies = db.GqlQuery(
+            '''
+            SELECT * FROM Movie
+            WHERE watched = True
+            ORDER BY created DESC
+            LIMIT 10
+            ''')
+
+        movie_ps = [
+            '<p>{}</p>'.format(movie.title)
+            for movie in recently_watched_movies
+        ]
+        # ['<p>Shrek</p>','<p>Hamilton</p>']
+        # '\n'.join(['<p>Shrek</p>','<p>Hamilton</p>'])
+        # -> '<p>Shrek</p>\n<p>Hamilton</p>
+
+        self.response.write(''.join(movie_ps))
+
+
 class AddMovie(Handler):
     """ Handles requests coming in to '/add'
         e.g. www.flicklist.com/add
@@ -246,7 +267,19 @@ class WatchedMovie(Handler):
 class MovieRatings(Handler):
 
     def get(self):
-        watched_movies = db.GqlQuery("SELECT * FROM Movie where watched = True order by created desc")
+        watched_movies = (
+            Movie.all()
+            .filter('owner', self.user)
+            .filter('watched', True)
+            .order('-created'))
+        # Or,
+        # watched_movies = db.GqlQuery('''
+        # SELECT * FROM Movie
+        # WHERE watched = True
+        # AND owner = :1
+        # ORDER BY created DESC
+        # ''',
+        # self.user)
         t = jinja_env.get_template("ratings.html")
         content = t.render(movies = watched_movies)
         self.response.write(content)

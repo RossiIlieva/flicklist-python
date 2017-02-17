@@ -12,6 +12,13 @@ indexes:
 
 - kind: Movie
   properties:
+  - name: owner
+  - name: watched
+  - name: created
+    direction: desc
+
+- kind: Movie
+  properties:
   - name: watched
   - name: created
 
