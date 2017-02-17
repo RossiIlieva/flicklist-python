@@ -10,5 +10,13 @@ Implement this template!
 For each movie in the list, display the username of whoever watched it and what rating they gave.
     e.g. Jesse watched The Big Green, and gave it a rating of ***** stars.
 -->
+{% for movie in movies %}
+  <p>
+    {{movie.owner.username}}
+    watched {{ movie.title }},
+    and gave it a rating of
+    {{ movie.rating }} stars.
+  </p>
+{% endfor %}
 
 {% endblock %}
