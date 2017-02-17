@@ -34,6 +34,8 @@ class Movie(db.Model):
     created = db.DateTimeProperty(auto_now_add = True)
     watched = db.BooleanProperty(required = True, default = False)
     rating = db.StringProperty()
+    owner = db.ReferenceProperty(User, required=True)
+
 # end of Movie
 
 allowed_routes = (
@@ -58,7 +60,7 @@ class Handler(webapp2.RequestHandler):
         user_id = user.key().id()
         self.set_secure_cookie('user_id', str(user_id))
 
-    def log_out_user(self):
+    def logout_user(self):
         self.set_secure_cookie('user_id', '')
 
     def set_secure_cookie(self, name, value):
@@ -116,6 +118,11 @@ class LoginHandler(Handler):
         else:
             self.login_user(user)
             self.redirect('/')
+
+class LogoutHandler(Handler):
+    def get(self):
+        self.logout_user()
+        self.redirect('/login')
 
 class RegisterHandler(Handler):
     def show_sign_up_form(self, errors=None, username=''):
@@ -195,7 +202,9 @@ class AddMovie(Handler):
         new_movie_title_escaped = cgi.escape(new_movie_title, quote=True)
 
         # construct a movie object for the new movie
-        movie = Movie(title = new_movie_title_escaped)
+        movie = Movie(
+            title=new_movie_title_escaped,
+            owner=self.user)
         movie.put()
 
         # render the confirmation message
@@ -267,4 +276,5 @@ app = webapp2.WSGIApplication([
     ('/ratings', MovieRatings),
     ('/login', LoginHandler),
     ('/register', RegisterHandler),
+    ('/logout', LogoutHandler),
 ], debug=True)
